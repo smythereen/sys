@@ -85,7 +85,7 @@ cd ~/sys && make header && make library
 
 ## System prerequisites
 
-- GNU make, gcc (C), `ar`, Linux with `/proc` (for `get_stat` / `lineage`).
+- GNU make, gcc for C implementations, g++ for C++ clients, `ar`, Linux with `/proc` (for `get_stat` / `lineage`).
 - glibc headers (`unistd`, `sys/*`, etc.).
 - Public unit **atomic** headers installed to `~/cmn` before compiling
   `sysprt.c`.
@@ -139,6 +139,61 @@ Link without `-lsys` fails with undefined `Trim` / `Get_Path`.
 
 Release tag: `v0.2.0` (documentation update on the same tag line; version
 number unchanged).
+
+## Using this unit from C++
+
+This unit can be used from **C and C++**. Keep the unit's `.c` implementation
+files compiled as C with `gcc`/`CC`; compile your C++ client with `g++`/`CXX`
+and use `g++` for the final mixed-language link. There is no need to rebuild
+the C library as C++.
+
+Base's shared rules recognize C++ product sources named `.cc` and compile
+them with `CXX` and `CXXFLAGS` (for example `make CXX=g++`). `CPP` names
+the preprocessor, not the C++ compiler. The commands below assume the
+headers and libraries have already been installed into `$HOME/cmn` and
+`$HOME/lib`. GNU C++17 on Linux x86-64 is the example target; GNU extensions
+in the shared types/headers are intentional.
+
+`common.h` already encloses its public functions and globals in
+`extern "C"` when included from C++; include it directly. The integer and
+floating-point typedefs are shared by both languages, with the same hardware
+constraints. APIs taking `char *` need mutable character arrays in C++;
+do not pass a string literal to `Trim`, or cast away constness to silence an
+error. For tracing, use `char fmt[] = "count=%u"; Trace(SYS_TRC_LVL, fmt, n);`
+with a `u32 n`; the same trace controls apply in either language.
+
+Optional headers: `port.h` and `gf8.h` also provide C linkage, but `port.h`
+has no implementation in this public unit. `gf.h` is an alternative to
+`gf8.h`, not an additional include: they define overlapping names with
+different `ginit` signatures. Both define a non-inline `ginit` in the header,
+so include your chosen GF header in only one translation unit. `gf.h` has
+no C-linkage guard; if sharing its entry point with C, use
+`extern "C" {` / `#include <gf.h>` / `}` on separate lines in that C++
+translation unit. `bitops.h` remains unavailable on modern distributions
+because it requires the obsolete `<linux/config.h>`; this is not a C++
+linkage problem.
+
+Save as `use_sys.cc`:
+
+```cpp
+#include <common.h>
+int main() {
+    static_assert(sizeof(u32) == 4, "u32 is 32 bits");
+    char text[] = "  hello  ";
+    return strcmp(Trim(text), "hello") != 0;
+}
+```
+
+```sh
+g++ -std=gnu++17 -I"$HOME/cmn" use_sys.cc -L"$HOME/lib" -lsys -o use_sys
+./use_sys
+```
+
+The C++ example above was compiled, linked and run on Linux x86-64 using
+Clang 22.1.8 via `zig c++ -std=gnu++17 -nostdlib++`, with GCC 14.2-built C
+objects where needed. It uses no C++ standard-library runtime. The `g++`
+command is the GNU-toolchain form; that driver was not available for this
+smoke check. This is not an exhaustive API or concurrency test.
 
 ## License
 
