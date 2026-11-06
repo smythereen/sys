@@ -1,0 +1,4 @@
+# UNIT.deps for sys
+# Library needs atomic headers only. Legacy far/map products omitted (cycle avoidance).
+base 1
+require atomic
